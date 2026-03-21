@@ -10,12 +10,18 @@ import Jobs from "../pages/Jobs";
 import Notifications from "../pages/Notifications";
 import Profile from "../pages/Profile";
 import Leave from "../pages/Leave";
+import Signup from "../pages/Signup";
+import ForgotPassword from "../pages/ForgotPassword";
+import ResetPassword from "../pages/ResetPassword";
 
 const AppRoutes: React.FC = () => {
   return (
     <Routes>
       {/* Public */}
       <Route path="/login" element={<Login />} />
+      <Route path="/signup" element={<Signup />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
 
       {/* Protected */}
       <Route element={<ProtectedRoute />}>
