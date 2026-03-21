@@ -19,6 +19,7 @@ import useAuthStore from '../../store/authStore';
 const Header: React.FC = () => {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
+  const homePath = user?.role === 'admin' ? '/admin/dashboard' : '/dashboard';
 
   return (
     <AppBar
@@ -37,7 +38,7 @@ const Header: React.FC = () => {
           alignItems="center"
           spacing={1.2}
           sx={{ cursor: 'pointer' }}
-          onClick={() => navigate('/dashboard')}
+          onClick={() => navigate(homePath)}
         >
           <Box
             sx={{

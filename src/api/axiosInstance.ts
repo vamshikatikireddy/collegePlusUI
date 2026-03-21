@@ -1,10 +1,14 @@
-import axios from 'axios';
-import useAuthStore from '../store/authStore';
+import axios from "axios";
+import useAuthStore from "../store/authStore";
+
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL ?? "http://localhost:5000/api";
 
 const axiosInstance = axios.create({
-  baseURL: '/api',
+  baseURL: API_BASE_URL,
+  withCredentials: true,
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
 });
 
@@ -18,15 +22,15 @@ axiosInstance.interceptors.request.use(
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 );
 
 // ---------- Response Interceptor ----------
-// On 401 → attempt a silent token refresh, then retry the original request.
-// If the refresh itself fails, clear auth and redirect to login.
+// On 401, attempt a silent token refresh, then retry the original request.
+// If refresh fails, clear auth and redirect to login.
 let isRefreshing = false;
 let failedQueue: Array<{
-  resolve: (token: string) => void;
+  resolve: (token: string | null) => void;
   reject: (error: unknown) => void;
 }> = [];
 
@@ -35,7 +39,7 @@ const processQueue = (error: unknown, token: string | null = null) => {
     if (error) {
       prom.reject(error);
     } else {
-      prom.resolve(token!);
+      prom.resolve(token);
     }
   });
   failedQueue = [];
@@ -50,15 +54,17 @@ axiosInstance.interceptors.response.use(
     if (
       error.response?.status === 401 &&
       !originalRequest._retry &&
-      !originalRequest.url?.includes('/auth/refresh')
+      !originalRequest.url?.includes("/auth/refresh")
     ) {
       if (isRefreshing) {
-        // Another refresh is in flight — queue this request
-        return new Promise<string>((resolve, reject) => {
+        // Another refresh is in flight; queue this request.
+        return new Promise<string | null>((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         })
           .then((token) => {
-            originalRequest.headers.Authorization = `Bearer ${token}`;
+            if (token) {
+              originalRequest.headers.Authorization = `Bearer ${token}`;
+            }
             return axiosInstance(originalRequest);
           })
           .catch((err) => Promise.reject(err));
@@ -68,29 +74,35 @@ axiosInstance.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        // Call the refresh endpoint; the refresh token is in an HttpOnly cookie
-        // so withCredentials sends it automatically.
+        // Refresh via HttpOnly cookie (withCredentials sends it automatically).
         const { data } = await axios.post(
-          '/api/auth/refresh',
+          `${API_BASE_URL}/auth/refresh`,
           {},
-          { withCredentials: true }
+          { withCredentials: true },
         );
 
-        const newAccessToken: string = data.accessToken;
-        useAuthStore.getState().setAccessToken(newAccessToken);
+        const newAccessToken: string | null = data.accessToken ?? null;
+        if (newAccessToken) {
+          useAuthStore.getState().setAccessToken(newAccessToken);
+        }
+        if (data.user) {
+          useAuthStore.getState().setUser(data.user);
+        }
 
         processQueue(null, newAccessToken);
 
-        // Retry the original request with the new token
-        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+        // Retry original request. Attach bearer only if refresh returned one.
+        if (newAccessToken) {
+          originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+        }
         return axiosInstance(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);
         useAuthStore.getState().clearAuth();
 
         // Redirect to login
-        if (typeof window !== 'undefined') {
-          window.location.href = '/login';
+        if (typeof window !== "undefined") {
+          window.location.href = "/login";
         }
 
         return Promise.reject(refreshError);
@@ -100,7 +112,7 @@ axiosInstance.interceptors.response.use(
     }
 
     return Promise.reject(error);
-  }
+  },
 );
 
 export default axiosInstance;
