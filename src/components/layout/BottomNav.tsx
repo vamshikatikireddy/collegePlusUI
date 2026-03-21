@@ -7,9 +7,12 @@ import {
   MenuBookRounded,
   WorkRounded,
   PersonRounded,
+  AdminPanelSettingsRounded,
+  GroupRounded,
 } from '@mui/icons-material';
+import useAuthStore from '../../store/authStore';
 
-const navItems = [
+const studentNavItems = [
   { label: 'Home', icon: <DashboardRounded />, path: '/dashboard' },
   { label: 'Calendar', icon: <CalendarMonthRounded />, path: '/calendar' },
   { label: 'Courses', icon: <MenuBookRounded />, path: '/courses' },
@@ -17,9 +20,17 @@ const navItems = [
   { label: 'Profile', icon: <PersonRounded />, path: '/profile' },
 ];
 
+const adminNavItems = [
+  { label: 'Admin', icon: <AdminPanelSettingsRounded />, path: '/admin/dashboard' },
+  { label: 'Students', icon: <GroupRounded />, path: '/admin/register-student' },
+  { label: 'Profile', icon: <PersonRounded />, path: '/profile' },
+];
+
 const BottomNav: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const role = useAuthStore((s) => s.user?.role);
+  const navItems = role === 'admin' ? adminNavItems : studentNavItems;
 
   const currentIndex = navItems.findIndex((item) =>
     location.pathname.startsWith(item.path)

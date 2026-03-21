@@ -14,6 +14,7 @@ import {
 } from "@mui/material";
 import {
   Person as PersonIcon,
+  BadgeOutlined,
   Email as EmailIcon,
   Lock as LockIcon,
   Visibility,
@@ -28,8 +29,9 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const Signup: React.FC = () => {
   const navigate = useNavigate();
-  const setAuth = useAuthStore((s) => s.setAuth);
+  const currentUserRole = useAuthStore((s) => s.user?.role);
   const [fullName, setFullName] = useState("");
+  const [studentRollNumber, setStudentRollNumber] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -37,14 +39,18 @@ const Signup: React.FC = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [touched, setTouched] = useState({
     fullName: false,
+    studentRollNumber: false,
     email: false,
     password: false,
     confirmPassword: false,
   });
 
   const fullNameError = touched.fullName && fullName.trim().length < 2;
+  const rollNumberError =
+    touched.studentRollNumber && studentRollNumber.trim().length < 2;
   const emailError = touched.email && !EMAIL_REGEX.test(email);
   const passwordError = touched.password && password.length < 6;
   const confirmPasswordError =
@@ -52,6 +58,7 @@ const Signup: React.FC = () => {
 
   const canSubmit =
     fullName.trim().length >= 2 &&
+    studentRollNumber.trim().length >= 2 &&
     EMAIL_REGEX.test(email) &&
     password.length >= 6 &&
     confirmPassword === password &&
@@ -61,6 +68,7 @@ const Signup: React.FC = () => {
     e.preventDefault();
     setTouched({
       fullName: true,
+      studentRollNumber: true,
       email: true,
       password: true,
       confirmPassword: true,
@@ -72,13 +80,30 @@ const Signup: React.FC = () => {
 
     setLoading(true);
     setError(null);
+    setSuccess(null);
 
     try {
-      const response = await signup(email.trim(), password, fullName.trim());
+      const response = await signup(
+        email.trim(),
+        password,
+        fullName.trim(),
+        studentRollNumber.trim(),
+      );
 
       if (response.status === 201) {
-        setAuth(response.data.accessToken, response.data.user);
-        navigate("/dashboard", { replace: true });
+        setSuccess("Student account created successfully.");
+        setFullName("");
+        setStudentRollNumber("");
+        setEmail("");
+        setPassword("");
+        setConfirmPassword("");
+        setTouched({
+          fullName: false,
+          studentRollNumber: false,
+          email: false,
+          password: false,
+          confirmPassword: false,
+        });
         return;
       }
 
@@ -229,10 +254,10 @@ const Signup: React.FC = () => {
           transition={{ delay: 0.3, duration: 0.5 }}
         >
           <Typography variant="h4" sx={{ fontWeight: 700, mt: 3, mb: 0.5 }}>
-            Create account
+            Register student
           </Typography>
           <Typography variant="subtitle1" sx={{ mb: 3.5 }}>
-            Join CollegePlus and start organizing your campus life
+            Admin-only form to create a new student account
           </Typography>
         </motion.div>
 
@@ -251,6 +276,26 @@ const Signup: React.FC = () => {
                 sx={{ mb: 2.5 }}
               >
                 {error}
+              </Alert>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {success && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <Alert
+                id="signup-success-alert"
+                severity="success"
+                onClose={() => setSuccess(null)}
+                sx={{ mb: 2.5 }}
+              >
+                {success}
               </Alert>
             </motion.div>
           )}
@@ -300,6 +345,42 @@ const Signup: React.FC = () => {
             transition={{ delay: 0.5, duration: 0.5 }}
           >
             <TextField
+              id="signup-roll-number"
+              label="Student roll number"
+              type="text"
+              fullWidth
+              required
+              value={studentRollNumber}
+              onChange={(e) =>
+                setStudentRollNumber(e.target.value.toUpperCase().trim())
+              }
+              onBlur={() =>
+                setTouched((t) => ({ ...t, studentRollNumber: true }))
+              }
+              error={rollNumberError}
+              helperText={rollNumberError ? "Roll number is required" : " "}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <BadgeOutlined
+                      sx={{
+                        color: rollNumberError ? "error.main" : "text.secondary",
+                        fontSize: 20,
+                      }}
+                    />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{ mb: 1 }}
+            />
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6, duration: 0.5 }}
+          >
+            <TextField
               id="signup-email"
               label="Email address"
               type="email"
@@ -329,7 +410,7 @@ const Signup: React.FC = () => {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6, duration: 0.5 }}
+            transition={{ delay: 0.7, duration: 0.5 }}
           >
             <TextField
               id="signup-password"
@@ -380,7 +461,7 @@ const Signup: React.FC = () => {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.7, duration: 0.5 }}
+            transition={{ delay: 0.8, duration: 0.5 }}
           >
             <TextField
               id="signup-confirm-password"
@@ -433,7 +514,7 @@ const Signup: React.FC = () => {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.8, duration: 0.5 }}
+            transition={{ delay: 0.9, duration: 0.5 }}
           >
             <Button
               id="signup-submit-btn"
@@ -453,7 +534,7 @@ const Signup: React.FC = () => {
               {loading ? (
                 <CircularProgress size={24} sx={{ color: "#fff" }} />
               ) : (
-                "Create Account"
+                "Create Student"
               )}
             </Button>
 
@@ -463,7 +544,13 @@ const Signup: React.FC = () => {
               variant="text"
               size="large"
               fullWidth
-              onClick={() => navigate("/login")}
+              onClick={() =>
+                navigate(
+                  currentUserRole === "admin"
+                    ? "/admin/dashboard"
+                    : "/dashboard",
+                )
+              }
               sx={{
                 mt: 1,
                 py: 1.2,
@@ -471,7 +558,7 @@ const Signup: React.FC = () => {
                 fontWeight: 600,
               }}
             >
-              Already have an account? Sign In
+              Back to dashboard
             </Button>
           </motion.div>
         </Box>

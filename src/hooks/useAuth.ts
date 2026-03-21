@@ -13,17 +13,25 @@ const useAuth = () => {
 
   const isAuthenticated = accessToken !== null || user !== null;
 
-  const register = async (email: string, password: string, name: string) => {
-    const data = await registerApi(email, password, name);
+  const register = async (
+    email: string,
+    password: string,
+    name: string,
+    studentRollNumber?: string,
+  ) => {
+    const data = await registerApi(email, password, name, studentRollNumber);
     console.log(data);
     return data;
   };
 
-  const login = async (email: string, password: string) => {
-    const data = await loginApi(email, password);
+  const login = async (identifier: string, password: string) => {
+    const data = await loginApi(identifier, password);
     setAuth(data.accessToken, data.user);
     // console.log(data);
-    navigate("/dashboard", { replace: true });
+    navigate(
+      data.user.role === "admin" ? "/admin/dashboard" : "/dashboard",
+      { replace: true },
+    );
     return data;
   };
 

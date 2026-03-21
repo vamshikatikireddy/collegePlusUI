@@ -25,12 +25,14 @@ export const signup = async (
   email: string,
   password: string,
   name: string,
+  studentRollNumber?: string,
 ): Promise<AxiosResponse<LoginResponse>> => {
   const data = await axiosInstance.post<LoginResponse>("/auth/register", {
     name,
     role: "student",
     email,
     password,
+    ...(studentRollNumber ? { studentRollNumber } : {}),
   }, { withCredentials: true });
   return data;
 };
@@ -41,13 +43,18 @@ export const signup = async (
  * The backend should also set the refresh token as an HttpOnly cookie.
  */
 export const login = async (
-  email: string,
+  identifier: string,
   password: string,
 ): Promise<LoginResponse> => {
+  const normalizedIdentifier = identifier.trim();
+  const isEmailIdentifier = normalizedIdentifier.includes("@");
+
   const { data } = await axiosInstance.post<LoginResponse>(
     "/auth/login",
     {
-      email,
+      ...(isEmailIdentifier
+        ? { email: normalizedIdentifier }
+        : { studentRollNumber: normalizedIdentifier }),
       password,
     },
     { withCredentials: true },

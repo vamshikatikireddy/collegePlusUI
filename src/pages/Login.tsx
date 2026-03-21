@@ -23,27 +23,25 @@ import { motion, AnimatePresence } from "framer-motion";
 import { login } from "../api/authApi";
 import useAuthStore from "../store/authStore";
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 const Login: React.FC = () => {
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
 
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [touched, setTouched] = useState({ email: false, password: false });
+  const [touched, setTouched] = useState({ identifier: false, password: false });
 
-  const emailError = touched.email && !EMAIL_REGEX.test(email);
+  const identifierError = touched.identifier && identifier.trim().length === 0;
   const passwordError = touched.password && password.length === 0;
 
-  const canSubmit = EMAIL_REGEX.test(email) && password.length > 0 && !loading;
+  const canSubmit = identifier.trim().length > 0 && password.length > 0 && !loading;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setTouched({ email: true, password: true });
+    setTouched({ identifier: true, password: true });
 
     if (!canSubmit) return;
 
@@ -51,9 +49,12 @@ const Login: React.FC = () => {
     setError(null);
 
     try {
-      const data = await login(email, password);
+      const data = await login(identifier, password);
       setAuth(data.accessToken, data.user);
-      navigate("/dashboard", { replace: true });
+      navigate(
+        data.user.role === "admin" ? "/admin/dashboard" : "/dashboard",
+        { replace: true },
+      );
     } catch (err: unknown) {
       if (
         err &&
@@ -246,22 +247,22 @@ const Login: React.FC = () => {
             transition={{ delay: 0.4, duration: 0.5 }}
           >
             <TextField
-              id="login-email"
-              label="Email address"
-              type="email"
+              id="login-identifier"
+              label="Email or Roll Number"
+              type="text"
               fullWidth
               required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onBlur={() => setTouched((t) => ({ ...t, email: true }))}
-              error={emailError}
-              helperText={emailError ? "Enter a valid email address" : " "}
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              onBlur={() => setTouched((t) => ({ ...t, identifier: true }))}
+              error={identifierError}
+              helperText={identifierError ? "Email or roll number is required" : " "}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
                     <EmailIcon
                       sx={{
-                        color: emailError ? "error.main" : "text.secondary",
+                        color: identifierError ? "error.main" : "text.secondary",
                         fontSize: 20,
                       }}
                     />
@@ -369,7 +370,7 @@ const Login: React.FC = () => {
               variant="text"
               size="large"
               fullWidth
-              onClick={() => navigate("/signup")}
+              onClick={() => navigate("/forgot-password")}
               sx={{
                 mt: 1,
                 py: 1.2,
@@ -377,7 +378,7 @@ const Login: React.FC = () => {
                 fontWeight: 600,
               }}
             >
-              Create Account
+              Need help signing in?
             </Button>
           </motion.div>
 
