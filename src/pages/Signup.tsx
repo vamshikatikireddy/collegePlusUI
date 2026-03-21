@@ -13,6 +13,7 @@ import {
   Stack,
 } from "@mui/material";
 import {
+  Person as PersonIcon,
   Email as EmailIcon,
   Lock as LockIcon,
   Visibility,
@@ -20,40 +21,68 @@ import {
   SchoolRounded,
 } from "@mui/icons-material";
 import { motion, AnimatePresence } from "framer-motion";
-import { login } from "../api/authApi";
+import { signup } from "../api/authApi";
 import useAuthStore from "../store/authStore";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const Login: React.FC = () => {
+const Signup: React.FC = () => {
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
-
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [touched, setTouched] = useState({ email: false, password: false });
+  const [touched, setTouched] = useState({
+    fullName: false,
+    email: false,
+    password: false,
+    confirmPassword: false,
+  });
 
+  const fullNameError = touched.fullName && fullName.trim().length < 2;
   const emailError = touched.email && !EMAIL_REGEX.test(email);
-  const passwordError = touched.password && password.length === 0;
+  const passwordError = touched.password && password.length < 6;
+  const confirmPasswordError =
+    touched.confirmPassword && confirmPassword !== password;
 
-  const canSubmit = EMAIL_REGEX.test(email) && password.length > 0 && !loading;
+  const canSubmit =
+    fullName.trim().length >= 2 &&
+    EMAIL_REGEX.test(email) &&
+    password.length >= 6 &&
+    confirmPassword === password &&
+    !loading;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setTouched({ email: true, password: true });
-
-    if (!canSubmit) return;
+    setTouched({
+      fullName: true,
+      email: true,
+      password: true,
+      confirmPassword: true,
+    });
+    if (!canSubmit) {
+      setError("Please fix the highlighted fields and try again.");
+      return;
+    }
 
     setLoading(true);
     setError(null);
 
     try {
-      const data = await login(email, password);
-      setAuth(data.accessToken, data.user);
-      navigate("/dashboard", { replace: true });
+      const response = await signup(email.trim(), password, fullName.trim());
+
+      if (response.status === 201) {
+        setAuth(response.data.accessToken, response.data.user);
+        navigate("/dashboard", { replace: true });
+        return;
+      }
+
+      setError("Unexpected response from server. Please try again.");
     } catch (err: unknown) {
       if (
         err &&
@@ -67,9 +96,7 @@ const Login: React.FC = () => {
             .message,
         );
       } else {
-        setError(
-          "Unable to sign in. Please check your credentials and try again.",
-        );
+        setError("Unable to create account. Please try again.");
       }
     } finally {
       setLoading(false);
@@ -78,7 +105,7 @@ const Login: React.FC = () => {
 
   return (
     <Box
-      id="login-page"
+      id="signup-page"
       sx={{
         minHeight: "100vh",
         display: "flex",
@@ -94,7 +121,6 @@ const Login: React.FC = () => {
           "#0A0E1A",
       }}
     >
-      {/* Animated background orbs */}
       <Box
         component={motion.div}
         animate={{
@@ -138,7 +164,6 @@ const Login: React.FC = () => {
         }}
       />
 
-      {/* Login card */}
       <Paper
         component={motion.div}
         initial={{ opacity: 0, y: 40, scale: 0.96 }}
@@ -160,7 +185,6 @@ const Login: React.FC = () => {
             "0 24px 80px rgba(0,0,0,0.4), 0 0 1px rgba(124,77,255,0.3)",
         }}
       >
-        {/* Branding */}
         <Stack
           component={motion.div}
           initial={{ opacity: 0, y: 20 }}
@@ -205,14 +229,13 @@ const Login: React.FC = () => {
           transition={{ delay: 0.3, duration: 0.5 }}
         >
           <Typography variant="h4" sx={{ fontWeight: 700, mt: 3, mb: 0.5 }}>
-            Welcome back
+            Create account
           </Typography>
           <Typography variant="subtitle1" sx={{ mb: 3.5 }}>
-            Sign in to your account to continue
+            Join CollegePlus and start organizing your campus life
           </Typography>
         </motion.div>
 
-        {/* Error alert */}
         <AnimatePresence>
           {error && (
             <motion.div
@@ -222,7 +245,7 @@ const Login: React.FC = () => {
               transition={{ duration: 0.3 }}
             >
               <Alert
-                id="login-error-alert"
+                id="signup-error-alert"
                 severity="error"
                 onClose={() => setError(null)}
                 sx={{ mb: 2.5 }}
@@ -233,10 +256,9 @@ const Login: React.FC = () => {
           )}
         </AnimatePresence>
 
-        {/* Form */}
         <Box
           component="form"
-          id="login-form"
+          id="signup-form"
           onSubmit={handleSubmit}
           noValidate
         >
@@ -246,7 +268,39 @@ const Login: React.FC = () => {
             transition={{ delay: 0.4, duration: 0.5 }}
           >
             <TextField
-              id="login-email"
+              id="signup-fullname"
+              label="Full name"
+              type="text"
+              fullWidth
+              required
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              onBlur={() => setTouched((t) => ({ ...t, fullName: true }))}
+              error={fullNameError}
+              helperText={fullNameError ? "Enter at least 2 characters" : " "}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <PersonIcon
+                      sx={{
+                        color: fullNameError ? "error.main" : "text.secondary",
+                        fontSize: 20,
+                      }}
+                    />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{ mb: 1 }}
+            />
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5, duration: 0.5 }}
+          >
+            <TextField
+              id="signup-email"
               label="Email address"
               type="email"
               fullWidth
@@ -275,10 +329,10 @@ const Login: React.FC = () => {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5, duration: 0.5 }}
+            transition={{ delay: 0.6, duration: 0.5 }}
           >
             <TextField
-              id="login-password"
+              id="signup-password"
               label="Password"
               type={showPassword ? "text" : "password"}
               fullWidth
@@ -287,7 +341,9 @@ const Login: React.FC = () => {
               onChange={(e) => setPassword(e.target.value)}
               onBlur={() => setTouched((t) => ({ ...t, password: true }))}
               error={passwordError}
-              helperText={passwordError ? "Password is required" : " "}
+              helperText={
+                passwordError ? "Password must be at least 6 characters" : " "
+              }
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -302,7 +358,7 @@ const Login: React.FC = () => {
                 endAdornment: (
                   <InputAdornment position="end">
                     <IconButton
-                      id="toggle-password-visibility"
+                      id="toggle-signup-password-visibility"
                       onClick={() => setShowPassword((v) => !v)}
                       edge="end"
                       size="small"
@@ -324,15 +380,68 @@ const Login: React.FC = () => {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6, duration: 0.5 }}
+            transition={{ delay: 0.7, duration: 0.5 }}
+          >
+            <TextField
+              id="signup-confirm-password"
+              label="Confirm password"
+              type={showConfirmPassword ? "text" : "password"}
+              fullWidth
+              required
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              onBlur={() =>
+                setTouched((t) => ({ ...t, confirmPassword: true }))
+              }
+              error={confirmPasswordError}
+              helperText={confirmPasswordError ? "Passwords do not match" : " "}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <LockIcon
+                      sx={{
+                        color: confirmPasswordError
+                          ? "error.main"
+                          : "text.secondary",
+                        fontSize: 20,
+                      }}
+                    />
+                  </InputAdornment>
+                ),
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      id="toggle-signup-confirm-password-visibility"
+                      onClick={() => setShowConfirmPassword((v) => !v)}
+                      edge="end"
+                      size="small"
+                      sx={{ color: "text.secondary" }}
+                    >
+                      {showConfirmPassword ? (
+                        <VisibilityOff fontSize="small" />
+                      ) : (
+                        <Visibility fontSize="small" />
+                      )}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+              sx={{ mb: 1 }}
+            />
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.8, duration: 0.5 }}
           >
             <Button
-              id="login-submit-btn"
+              id="signup-submit-btn"
               type="submit"
               variant="contained"
               size="large"
               fullWidth
-              disabled={loading}
+              disabled={!canSubmit}
               sx={{
                 mt: 1,
                 py: 1.6,
@@ -344,16 +453,17 @@ const Login: React.FC = () => {
               {loading ? (
                 <CircularProgress size={24} sx={{ color: "#fff" }} />
               ) : (
-                "Sign In"
+                "Create Account"
               )}
             </Button>
+
             <Button
               id="signup-login-btn"
               type="button"
               variant="text"
               size="large"
               fullWidth
-              onClick={() => navigate("/signup")}
+              onClick={() => navigate("/login")}
               sx={{
                 mt: 1,
                 py: 1.2,
@@ -361,22 +471,8 @@ const Login: React.FC = () => {
                 fontWeight: 600,
               }}
             >
-              Create Account
+              Already have an account? Sign In
             </Button>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.8, duration: 0.5 }}
-          >
-            <Typography
-              variant="body2"
-              align="center"
-              sx={{ mt: 3, color: "text.secondary" }}
-            >
-              powered by Pralyx
-            </Typography>
           </motion.div>
         </Box>
       </Paper>
@@ -384,4 +480,4 @@ const Login: React.FC = () => {
   );
 };
 
-export default Login;
+export default Signup;
