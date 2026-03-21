@@ -7,6 +7,13 @@ import {
   Divider,
   Button,
   Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Alert,
+  CircularProgress,
 } from "@mui/material";
 import {
   EmailOutlined,
@@ -14,6 +21,7 @@ import {
   BadgeOutlined,
   CalendarTodayOutlined,
   LogoutRounded,
+  LockResetRounded,
 } from "@mui/icons-material";
 import { motion } from "framer-motion";
 import dayjs from "dayjs";
@@ -21,11 +29,30 @@ import Card from "../components/common/Card";
 import { CircularProgressBar } from "../components/common/ProgressBar";
 import useAuthStore from "../store/authStore";
 import useAuth from "../hooks/useAuth";
+import { changePassword } from "../api/authApi";
+import { useNavigate } from "react-router-dom";
 
 const Profile: React.FC = () => {
   const user = useAuthStore((s) => s.user);
   const { logout } = useAuth();
+  const navigate = useNavigate();
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
+  const [passwordDialogOpen, setPasswordDialogOpen] = React.useState(false);
+  const [passwordLoading, setPasswordLoading] = React.useState(false);
+  const [passwordError, setPasswordError] = React.useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = React.useState<string | null>(
+    null,
+  );
+  const [passwordForm, setPasswordForm] = React.useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [passwordTouched, setPasswordTouched] = React.useState({
+    currentPassword: false,
+    newPassword: false,
+    confirmPassword: false,
+  });
 
   const profileData = {
     name: user?.name || "John Doe",
@@ -58,6 +85,65 @@ const Profile: React.FC = () => {
       value: dayjs(profileData.joinedDate).format("MMMM YYYY"),
     },
   ];
+
+  const currentPasswordError =
+    passwordTouched.currentPassword &&
+    passwordForm.currentPassword.length === 0;
+  const newPasswordError =
+    passwordTouched.newPassword && passwordForm.newPassword.length < 6;
+  const confirmPasswordError =
+    passwordTouched.confirmPassword &&
+    passwordForm.confirmPassword !== passwordForm.newPassword;
+
+  const canUpdatePassword =
+    passwordForm.currentPassword.length > 0 &&
+    passwordForm.newPassword.length >= 6 &&
+    passwordForm.confirmPassword === passwordForm.newPassword &&
+    !passwordLoading;
+
+  const handlePasswordUpdate = async () => {
+    setPasswordTouched({
+      currentPassword: true,
+      newPassword: true,
+      confirmPassword: true,
+    });
+    if (!canUpdatePassword) return;
+
+    setPasswordLoading(true);
+    setPasswordError(null);
+    setPasswordSuccess(null);
+    try {
+      const response = await changePassword(
+        passwordForm.currentPassword,
+        passwordForm.newPassword,
+      );
+      setPasswordSuccess(response.message || "Password updated successfully.");
+      navigate("/dashboard", { replace: true });
+
+      // setPasswordForm({
+      //   currentPassword: "",
+      //   newPassword: "",
+      //   confirmPassword: "",
+      // });
+    } catch (err: unknown) {
+      if (
+        err &&
+        typeof err === "object" &&
+        "response" in err &&
+        (err as { response?: { data?: { message?: string } } }).response?.data
+          ?.message
+      ) {
+        setPasswordError(
+          (err as { response: { data: { message: string } } }).response.data
+            .message,
+        );
+      } else {
+        setPasswordError("Unable to update password right now.");
+      }
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
 
   return (
     <Box
@@ -208,29 +294,155 @@ const Profile: React.FC = () => {
         </Stack>
       </Card>
 
-      {/* Logout */}
-      <Button
-        id="profile-logout-btn"
+      <Stack spacing={1.5}>
+        <Button
+          id="profile-update-password-btn"
+          fullWidth
+          variant="outlined"
+          startIcon={<LockResetRounded />}
+          onClick={() => {
+            setPasswordDialogOpen(true);
+            setPasswordError(null);
+            setPasswordSuccess(null);
+          }}
+          sx={{
+            py: 1.4,
+            borderColor: "rgba(124,77,255,0.35)",
+            color: "#B388FF",
+            "&:hover": {
+              borderColor: "#7C4DFF",
+              bgcolor: "rgba(124,77,255,0.08)",
+            },
+          }}
+        >
+          Update Password
+        </Button>
+
+        <Button
+          id="profile-logout-btn"
+          fullWidth
+          variant="outlined"
+          startIcon={<LogoutRounded />}
+          disabled={isLoggingOut}
+          onClick={async () => {
+            setIsLoggingOut(true);
+            await logout();
+          }}
+          sx={{
+            py: 1.4,
+            borderColor: "rgba(255,82,82,0.3)",
+            color: "#FF8A80",
+            "&:hover": {
+              borderColor: "#FF5252",
+              bgcolor: "rgba(255,82,82,0.06)",
+            },
+          }}
+        >
+          Sign Out
+        </Button>
+      </Stack>
+
+      <Dialog
+        open={passwordDialogOpen}
+        onClose={() => {
+          if (passwordLoading) return;
+          setPasswordDialogOpen(false);
+        }}
         fullWidth
-        variant="outlined"
-        startIcon={<LogoutRounded />}
-        disabled={isLoggingOut}
-        onClick={async () => {
-          setIsLoggingOut(true);
-          await logout();
-        }}
-        sx={{
-          py: 1.4,
-          borderColor: "rgba(255,82,82,0.3)",
-          color: "#FF8A80",
-          "&:hover": {
-            borderColor: "#FF5252",
-            bgcolor: "rgba(255,82,82,0.06)",
-          },
-        }}
+        maxWidth="xs"
       >
-        Sign Out
-      </Button>
+        <DialogTitle sx={{ fontWeight: 700 }}>Update Password</DialogTitle>
+        <DialogContent>
+          <Stack spacing={1} sx={{ mt: 1 }}>
+            {passwordError && <Alert severity="error">{passwordError}</Alert>}
+            {passwordSuccess && (
+              <Alert severity="success">{passwordSuccess}</Alert>
+            )}
+            <TextField
+              label="Current Password"
+              type="password"
+              value={passwordForm.currentPassword}
+              onChange={(e) =>
+                setPasswordForm((prev) => ({
+                  ...prev,
+                  currentPassword: e.target.value,
+                }))
+              }
+              onBlur={() =>
+                setPasswordTouched((prev) => ({
+                  ...prev,
+                  currentPassword: true,
+                }))
+              }
+              error={currentPasswordError}
+              helperText={
+                currentPasswordError ? "Current password is required" : " "
+              }
+              fullWidth
+            />
+            <TextField
+              label="New Password"
+              type="password"
+              value={passwordForm.newPassword}
+              onChange={(e) =>
+                setPasswordForm((prev) => ({
+                  ...prev,
+                  newPassword: e.target.value,
+                }))
+              }
+              onBlur={() =>
+                setPasswordTouched((prev) => ({ ...prev, newPassword: true }))
+              }
+              error={newPasswordError}
+              helperText={
+                newPasswordError
+                  ? "New password must be at least 6 characters"
+                  : " "
+              }
+              fullWidth
+            />
+            <TextField
+              label="Confirm New Password"
+              type="password"
+              value={passwordForm.confirmPassword}
+              onChange={(e) =>
+                setPasswordForm((prev) => ({
+                  ...prev,
+                  confirmPassword: e.target.value,
+                }))
+              }
+              onBlur={() =>
+                setPasswordTouched((prev) => ({
+                  ...prev,
+                  confirmPassword: true,
+                }))
+              }
+              error={confirmPasswordError}
+              helperText={confirmPasswordError ? "Passwords do not match" : " "}
+              fullWidth
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button
+            onClick={() => setPasswordDialogOpen(false)}
+            disabled={passwordLoading}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handlePasswordUpdate}
+            disabled={!canUpdatePassword}
+          >
+            {passwordLoading ? (
+              <CircularProgress size={20} sx={{ color: "#fff" }} />
+            ) : (
+              "Update"
+            )}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

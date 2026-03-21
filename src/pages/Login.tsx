@@ -327,6 +327,22 @@ const Login: React.FC = () => {
             transition={{ delay: 0.6, duration: 0.5 }}
           >
             <Button
+              id="forgot-password-btn"
+              type="button"
+              variant="text"
+              onClick={() => navigate("/forgot-password")}
+              sx={{
+                alignSelf: "flex-end",
+                mb: 1,
+                px: 0,
+                minWidth: "auto",
+                color: "secondary.light",
+                fontWeight: 600,
+              }}
+            >
+              Forgot password?
+            </Button>
+            <Button
               id="login-submit-btn"
               type="submit"
               variant="contained"

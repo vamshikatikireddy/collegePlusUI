@@ -15,6 +15,12 @@ interface RefreshResponse {
   user?: User;
 }
 
+interface MessageResponse {
+  success?: boolean;
+  message?: string;
+  resetToken?: string;
+}
+
 export const signup = async (
   email: string,
   password: string,
@@ -70,4 +76,69 @@ export const refreshToken = async (): Promise<RefreshResponse> => {
  */
 export const logout = async (): Promise<void> => {
   await axiosInstance.post("/auth/logout", {}, { withCredentials: true });
+};
+
+/**
+ * POST /auth/change-password
+ * Protected route for authenticated users.
+ */
+export const changePassword = async (
+  currentPassword: string,
+  newPassword: string,
+): Promise<MessageResponse> => {
+  const { data } = await axiosInstance.post<MessageResponse>(
+    "/auth/change-password",
+    { currentPassword, newPassword },
+    { withCredentials: true },
+  );
+  return data;
+};
+
+/**
+ * POST /auth/forgot-password
+ * Sends OTP to the provided email.
+ */
+export const forgotPassword = async (
+  email: string,
+): Promise<MessageResponse> => {
+  const { data } = await axiosInstance.post<MessageResponse>(
+    "/auth/forgot-password",
+    { email },
+    { withCredentials: true },
+  );
+  return data;
+};
+
+/**
+ * POST /auth/verify-otp
+ * Verifies OTP before allowing password reset.
+ */
+export const verifyResetOtp = async (
+  email: string,
+  otp: string,
+): Promise<MessageResponse> => {
+  const { data } = await axiosInstance.post<MessageResponse>(
+    "/auth/verify-otp",
+    { email, otp },
+    { withCredentials: true },
+  );
+  return data;
+};
+
+/**
+ * POST /auth/reset-password
+ * Resets password using email + OTP verification.
+ */
+export const resetPassword = async (
+  email: string,
+  otp: string,
+  newPassword: string,
+  resetToken?: string,
+): Promise<MessageResponse> => {
+  const { data } = await axiosInstance.post<MessageResponse>(
+    "/auth/reset-password",
+    { email, otp, newPassword, resetToken },
+    { withCredentials: true },
+  );
+  return data;
 };
